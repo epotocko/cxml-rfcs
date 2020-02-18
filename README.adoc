@@ -1,0 +1,9 @@
+= cxml-rfcs
+
+The following proposals are for enhancements to the cXML standard. They are intended to enhance cXML through the use of Extrinsic elements while still resulting in XML that is valid per the official cXML DTD's.
+
+These proposals may be deprecated in the future if SAP/Ariba adds functionality to cXML that solves the problems addressed by these enhancements.
+
+https://github.com/epotocko/cxml-rfcs/blob/master/extend-eprocurement-session.adoc[Extend cXML eProcurement Session]
+
+https://github.com/epotocko/cxml-rfcs/blob/master/punchout-return-link.adoc[PunchOut Return Link]
