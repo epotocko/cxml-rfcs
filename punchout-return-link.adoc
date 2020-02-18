@@ -1,0 +1,95 @@
+
+= cXML Enhancement Proposal: PunchOut Return Link
+
+[width="100%"]
+|=========================================================
+| Title | cXML PunchOut Return Link
+| Status | Draft
+| Version | 1.0.0
+| Authors | Edward Potocko <epotocko@equallevel.com>
+|=========================================================
+
+== Problem
+Users need a way to easily return to their eProcurement application when punched out a site.  Some PunchOut sites have a "Sign Out" or "Return" link in the header that sends an empty cart back to the eProcurement application as a method of getting the user back.  This behavior is not consistent across all PunchOut sites. If there is no link to return, shoppers need to checkout an empty cart to return to their eProcurement application.  The process for checking out an empty cart is different on every site.
+
+=== Workarounds
+It is common for eProcurement applications to display PunchOut sites in an iframe that allows the procurement application to display a "Return to …" link at the top of the page.  Shoppers using PunchOut sites like the consistency of having a return link at the top of the page regardless of which site they are punched out to.   There are issues with this approach that make it impractical.
+
+==== Safari/Chrome* blocks 3rd party cookies in iframes
+Safari will not allow any cookies to be set inside an iframe unless the domain name of the parent page matches the domain name of the page in the frame.  This causes most punchout sites to be unusable in Safari when wrapped in an iframe. Chrome 80+ blocks third-party cookies that don’t include the SameSite=None and Secure attributes.
+
+==== Internet Explorer requires P3P headers to be present for 3rd party cookies to be set inside an iframe
+The default Internet Explorer settings will block 3rd party cookies inside an iframe unless a P3P header meeting certain requirements is present.  Suppliers are usually able to add these headers but it often requires additional communication between the implementation specialists and the supplier.  Furthermore, https://support.google.com/accounts/answer/151657?hl=en[Google^] and https://www.facebook.com/help/327993273962160[Facebook^] are both discouraging the use of P3P headers.
+
+==== Internet Explorer cripples rendering in iframes when the parent is rendered in Quirks Mode
+If the parent page specifies that it should be rendered in quirks mode (typically with a X-UA-Compatible: IE=5 header), IE changes the way it renders any content in iframes on the page (including child iframes and grand child iframes).  This creates a number of issues that are difficult to determine the cause of.  Consider the following case:
+
+*Browser*: Internet Explorer 10, *Parent page*: Renders in quirks mode using `X-UA-Compatible: IE=5` header
+
+An iframe is present on the page.  Inside the iframe the `User-Agent` will still indicate that the browser is Internet Explorer 10.  JavaScript objects/functions that should exist in Internet Explorer 10 are `undefined` such as `Object.create`, `Array.isArray`, and `Worker`.  This can cause pages that rely on the `User-Agent` to determine if features will exist to fail.  Feature detection should be used instead but often isn’t.
+
+==== The X-Frame-Options header prevents sites from being embedded in frames
+More sites are starting to use the `X-Frame-Options: SAMEORGIN` header which will prevent modern browsers from rendering the page in an iframe.
+
+== Proposal
+If the "Return To" link was displayed on the punchout site, there would be no need to display the site in a frame. The `ReturnLink/URL` isn't necessary (an empty cart could be sent back to the `BrowserFormPost/URL`) but it may be a better user experience if they can be taken to a specific page upon returning.
+
+=== eProcurement Implementation
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE cXML SYSTEM "http://xml.cxml.org/schemas/cXML/1.2.040/cXML.dtd">
+<cXML payloadID="1389757408.904244@example.com" timestamp="2016-04-03T16:17:21-04:00">
+  <Header>
+    ...
+  </Header>
+  <Request>
+    <PunchOutSetupRequest operation="create">
+      ...
+      <Extrinsic name="ReturnLinkUrl">https://shop.example.com/mysite/home</Extrinsic>
+      <Extrinsic name="ReturnLinkLabel">Return to eProcurement Application</Extrinsic>
+      ...
+    </PunchOutSetupRequest>
+  </Request>
+</cXML>
+----
+
+=== PunchOut Site Implementation
+[source,html]
+----
+<!DOCTYPE html>
+<html>
+<head>
+  <style type="text/css">
+    #return_banner {
+      background-color: #feffbf;
+      border-bottom: 1px solid #666;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 2px 4px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+    }
+
+    #return_banner a {
+      color: #000;
+    }
+
+    #return_banner_spacer {
+      height: 24px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="return_banner">
+    <a href="RETURN_LINK_URL_GOES_HERE">RETURN_LINK_LABEL_GOES_HERE</a>
+  </div>
+
+</body>
+</html>
+----
