@@ -1,0 +1,75 @@
+
+= cXML Enhancement Proposal: Extend eProcurement Session during a cXML PunchOut Session
+
+[width="100%"]
+|=========================================================
+| Title | Extend eProcurement Session during a cXML PunchOut Session
+| Status | Draft
+| Version | 1.0.0
+| Authors | Edward Potocko <epotocko@equallevel.com>
+|=========================================================
+
+== Problem
+Users shopping at PunchOut sites for extended periods of time may experience a session timeout in their eProcurement application.
+
+=== Workarounds
+There are a few common workarounds for preventing session timeouts in the eProcurement application.  
+
+* Increase the session timeout when a user is punched out to a large period of time. This may compromise the security of the application.
+* Import the cart upon for a user whose session has expired but require the user to re-authenticate (login again). Requiring users to login again is not an ideal user experience and may be complicated in environments where single-sign-on was used to access the eProcurement application.
+* Wrapping the PunchOut site in a frame allows the eProcurement application to embed JavaScript that can periodically "phone home" to keep the session alive. If the browser window is closed, the frame will stop phoning home and the session will expire. Wrapping PunchOut sites in frames is no longer practical for the reasons discussed https://punchoutcommerce.com/rfc/cxml/punchout-return-link/[here].
+
+== Proposal
+eProcurement applications should add a URL to the PunchOutSetupRequest that when requested will extend the users session in the eProcurement application. The PunchOut site should send a request to the eProcurement application to keep the session alive in the eProcurement application while the user is still on the site.
+
+=== eProcurement Implementation
+Add an `Extrinsic[name="SessionPingUrl"]` node that includes a URL that when requested, will extend the users session in the eProcurement application. The URL should return a 200 HTTP status code and the response body should be a 1x1 image file.
+
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE cXML SYSTEM "http://xml.cxml.org/schemas/cXML/1.2.040/cXML.dtd">
+<cXML payloadID="1389757408.904244@example.com" timestamp="2016-04-03T16:17:21-04:00">
+  <Header>
+    ...
+  </Header>
+  <Request>
+    <PunchOutSetupRequest operation="create">
+      ...
+      <Extrinsic name="SessionPingUrl">https://shop.example.com/mysite/extend_session</Extrinsic>
+      ...
+    </PunchOutSetupRequest>
+  </Request>
+</cXML>
+----
+
+=== PunchOut Site Implementation
+Upon receiving a `PunchOutSetupRequest` document that contains the `PunchOutSetupRequest/Extrinsic[name="SessionPingUrl"]` element, the PunchOut store should:
+
+* Store the URL in the users session so it is available on every request the user submits.
+* Add a snippet of JavaScript to the bottom of each page that sends a request to the eProcurement application which keeps the users session alive.
+
+[source,html]
+----
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+  <!-- Punchout site content goes here -->  
+  <script type="text/javascript">
+  // Extend the users session in their eProcurement system
+  (function() {
+    var SESSION_PING_URL = "Value from SessionPingUrl Extrinsic goes here";
+    window.setTimeout(function() {
+      var img = document.createElement('img');
+      img.src = SESSION_PING_URL + '?t=' + Math.floor(Date.now() / 1000);
+      img.width = '1';
+      img.height = '1';
+      document.getElementsByTagName('body')[0].appendChild(img);
+    }, 2000);
+  });
+  </script>
+</body>
+</html>
+----
